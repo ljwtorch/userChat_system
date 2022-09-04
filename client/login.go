@@ -6,6 +6,7 @@ import (
 	"example.com/m/v2/common/message"
 	"fmt"
 	"net"
+	"time"
 )
 
 //登录函数
@@ -60,6 +61,19 @@ func login(userId int, userPwd string) (err error) {
 		fmt.Println("conn.Write(bytes) err ", err)
 		return
 	}
-	fmt.Println("客户端，发送消息的长度成功,长度为 =", len(data))
-	return err
+	//fmt.Println("客户端，发送消息的长度成功,长度为 =", len(data))
+
+	//发送消息本身
+	_, err = conn.Write(data)
+	if err != nil {
+		fmt.Println("conn.Write(data) err ", err)
+		return
+	}
+	//休眠10
+	time.Sleep(time.Second * 10)
+	fmt.Println("休眠了10s")
+
+	//这里还需要处理服务器端返回的消息
+	return
+
 }
