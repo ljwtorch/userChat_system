@@ -38,6 +38,87 @@ func readPkg(conn net.Conn) (mes message.Message, err error) {
 	return
 }
 
+func writePkg(conn net.Conn, data []byte) (err error) {
+	//先发送一个长度给对方
+	var pkgLen uint32
+	var buf [4]byte
+	pkgLen = uint32(len(data))
+	binary.BigEndian.PutUint32(buf[0:4], pkgLen)
+	//此时发送长度
+	n, err := conn.Write(buf[:4])
+	if n != 4 || err != nil {
+		fmt.Println("conn.Write(bytes) err ", err)
+		return
+	}
+	//发送data本身
+	n, err = conn.Write(buf[:4])
+	if n != int(pkgLen) || err != nil {
+		fmt.Println("conn.Write(bytes) err ", err)
+		return
+	}
+	return
+}
+
+//severProcessLogin 专门处理登录请求
+func severProcessLogin(conn net.Conn, mes *message.Message) (err error) {
+	//核心代码
+	//1.先从mes中取出mes.Data，并直接反序列化成LoginMes
+	var loginMes message.LoginMes
+	err = json.Unmarshal([]byte(mes.Data), &loginMes)
+	if err != nil {
+		fmt.Println("json.Unmarshal err =", err)
+		return
+	}
+
+	//声明一个resMes
+	var resMes message.Message
+	resMes.Type = message.LoginResMesType
+
+	//2.声明一个LoginResMes
+	var loginResMes message.LoginResMes
+
+	//如果用户id=100 密码=123456 认为合法
+	if loginMes.UserId == 100 && loginMes.UserPwd == "123456" {
+		//合法
+		loginResMes.Code = 200
+	} else {
+		//不合法 500表示不存在
+		loginResMes.Code = 500
+		loginResMes.Error = "该用户不存在，注册后再使用"
+	}
+	//3.将loginResMes序列化
+	data, err := json.Marshal(loginResMes)
+	if err != nil {
+		fmt.Println("json.Marshal(loginResMes) err =", err)
+		return
+	}
+	//4.将data赋值给resMes
+	resMes.Data = string(data)
+	//5.对resMes进行序列化，准备发送
+	data, err = json.Marshal(resMes)
+	if err != nil {
+		fmt.Println("json.Marshal(resMes) err =", err)
+		return
+	}
+	//6.发送data 封装到writePkg函数
+	err = writePkg(conn, data)
+	return
+}
+
+//编写一个ServerProcessMes函数；根据客户端发送消息种类不同，决定调用哪个函数来处理
+func serverProcessMes(conn net.Conn, mes *message.Message) (err error) {
+	switch mes.Type {
+	case message.LoginMesType:
+		//处理登录
+		err = severProcessLogin(conn, mes)
+	case message.RegisterMesType:
+	//处理注册
+	default:
+		fmt.Println("消息类型不存在，无法处理……")
+	}
+	return
+}
+
 //处理客户端的通讯
 func process(conn net.Conn) {
 	//这里需要延时关闭conn
@@ -54,7 +135,11 @@ func process(conn net.Conn) {
 				return
 			}
 		}
-		fmt.Println("mes =", mes)
+		//fmt.Println("mes =", mes)
+		err = serverProcessMes(conn, &mes)
+		if err != nil {
+			return
+		}
 	}
 }
 

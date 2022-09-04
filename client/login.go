@@ -6,7 +6,6 @@ import (
 	"example.com/m/v2/common/message"
 	"fmt"
 	"net"
-	"time"
 )
 
 //登录函数
@@ -70,10 +69,23 @@ func login(userId int, userPwd string) (err error) {
 		return
 	}
 	//休眠10
-	time.Sleep(time.Second * 10)
-	fmt.Println("休眠了10s")
+	//time.Sleep(time.Second * 10)
+	//fmt.Println("休眠了10s")
 
 	//这里还需要处理服务器端返回的消息
+	mes, err = readPkg(conn)
+	if err != nil {
+		fmt.Println("eadPkg(conn) err =", err)
+		return
+	}
+	//将mes的Data部分反序列化成LoginResMes
+	var loginResMes message.LoginResMes
+	err = json.Unmarshal([]byte(mes.Data), &loginResMes)
+	if loginResMes.Code == 200 {
+		fmt.Println("登录成功")
+	} else if loginResMes.Code == 500 {
+		fmt.Println("登录失败")
+	}
 	return
 
 }
